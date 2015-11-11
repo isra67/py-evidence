@@ -1,12 +1,11 @@
 #!/bin/python
 
-#from functools import partial
 from math import cos, sin, pi
 from kivy.app import App
 from kivy.clock import Clock
-#from kivy.factory import Factory
 from kivy.graphics import Color, Line
 from kivy.lang import Builder
+from kivy.network.urlrequest import UrlRequest
 from kivy.properties import NumericProperty
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.label import Label
@@ -14,6 +13,7 @@ from kivy.uix.screenmanager import ScreenManager, Screen, RiseInTransition
 from kivy.uix.widget import Widget
 
 import datetime
+import json
 
 
 Builder.load_file("main1.kv")
@@ -27,6 +27,7 @@ class DigiClock(Label):
     def __init__(self, **kwargs):
         super(DigiClock, self).__init__(**kwargs)
         Clock.schedule_interval(self.update, 1)
+        
     def update(self, *args):
         self.text = datetime.datetime.now().strftime("%d.%m.%Y     %H:%M:%S")
 
@@ -60,9 +61,8 @@ class Evidence(FloatLayout):
     def __init__(self, **kwargs):
         print('Ini')
         super(Evidence, self).__init__(**kwargs)
-        self.scrmngr = self.ids._screen_manager
-#        self.btn1 = Factory.BtnIn()
-#        self.btn1.bind(on_press=lambda x: self.processEvent('1'))
+        self.scrmngr = self.ids._screen_manager        
+        self.read_server_status('192.168.1.47')
 
     def startScreenTiming(self):
         print('Enter')
@@ -80,6 +80,16 @@ class Evidence(FloatLayout):
         print('Event: ' + event)
         self.finishScreenTiming()
         self.return2clock()
+        self.read_server_status('192.168.1.47')
+        
+    def read_server_status(self, addr):
+        url = 'http://%s/inoteska/setdata.php?t=4' % addr 
+        req = UrlRequest( url, self.decode_server_status)
+
+    def decode_server_status(self, req, results):
+        d = json.loads(results)
+        for key, value in d.items():
+            print(key, ': ', value)
 
 
 class MainApp(App):
