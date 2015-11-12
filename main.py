@@ -1,8 +1,13 @@
 #!/bin/python
 
+'''
+Sources:
+  https://github.com/kivy/kivy/wiki/Working-with-Python-threads-inside-a-Kivy-application
+'''
+
 from math import cos, sin, pi
 from kivy.app import App
-from kivy.clock import Clock
+from kivy.clock import Clock, mainthread
 from kivy.graphics import Color, Line
 from kivy.lang import Builder
 from kivy.network.urlrequest import UrlRequest
@@ -14,6 +19,10 @@ from kivy.uix.widget import Widget
 
 import datetime
 import json
+
+import threading
+import socket
+import sys
 
 
 Builder.load_file("main1.kv")
@@ -59,13 +68,82 @@ class Ticks(Widget):
 #App
 class Evidence(FloatLayout):
     server = '192.168.1.47'
+    stop = threading.Event()
     
     def __init__(self, **kwargs):
         print('Ini')
         super(Evidence, self).__init__(**kwargs)
         self.scrmngr = self.ids._screen_manager        
         self.read_server_status(self.server)
+        
+        # Start a new thread with an infinite loop and stop the current one.
+        d = threading.Thread(target=self.infinite_loop)#.start()
+        d.setDaemon(True)
+        d.start()
 
+    def infinite_loop(self):
+        self.sockserv_init()
+        while True:
+            if self.stop.is_set():
+                # Stop running this thread so the main Python process can exit.
+                return
+                
+            #wait to accept a connection - blocking call
+            conn, addr = self.s.accept()
+            print('Connected with ' + addr[0] + ':' + str(addr[1]))
+             
+            #start new thread takes 1st argument as a function name to be run, second is the tuple of arguments to the function.
+            threading.Thread(target=self.clientthread, args=(conn,)).start()
+            #start_new_thread(clientthread ,(conn,))
+         
+        self.s.close()
+
+    def sockserv_init(self):    
+        HOST = ''   # Symbolic name meaning all available interfaces
+        PORT = 8888 # Arbitrary non-privileged port
+         
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print('Socket created')
+         
+        #Bind socket to local host and port
+        try:
+            self.s.bind((HOST, PORT))
+        except socket.error as msg:
+            print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
+            sys.exit()
+             
+        print('Socket bind complete')
+         
+        #Start listening on socket
+        self.s.listen(10)
+        print('Socket now listening')
+            
+    #Function for handling connections. This will be used to create threads
+    def clientthread(self, conn):
+        #Sending message to connected client
+        #conn.send(b'Welcome to the server. Type something and hit enter\n') #send only takes string
+         
+        #infinite loop so that function do not terminate and thread do not end.
+        while not self.stop.is_set():             
+            #Receiving from client
+            data = conn.recv(1024)
+            reply = 'OK...'# + data
+            if not data: 
+                break
+         
+            #conn.sendall(reply)
+            print(data)
+            #if '"RFID":' in data:
+            #    self.swap_screen('events')
+            self.swap_screen('events')
+         
+        #came out of loop
+        conn.close()
+        
+    @mainthread
+    def swap_screen(self, scr):
+        self.scrmngr.current = scr
+        
     def startScreenTiming(self):
         print('Enter')
         Clock.schedule_once(self.return2clock, 5)
@@ -100,6 +178,12 @@ class Evidence(FloatLayout):
 
 
 class MainApp(App):
+    def on_stop(self):
+        # The Kivy event loop is about to stop, set a stop signal;
+        # otherwise the app window will close, but the Python process will
+        # keep running until all secondary threads exit.
+        self.root.stop.set()
+        
     def build(self):
         return Evidence()
 
