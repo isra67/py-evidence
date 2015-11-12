@@ -2,12 +2,6 @@
 #: import math math
 
 
-[BtnOut@Button]:
-    text: str(ctx.j)
-    font_size: 24
-    color: 0,0.6,0.9,0.9
-
-
 <Evidence>:
     ScreenManager:
         size_hint: 1, 1
@@ -17,9 +11,47 @@
         Screen:
             name: 'clock'
             id: clock
-            on_touch_down: _screen_manager.current = 'events'
+            on_touch_down: _screen_manager.current = 'people'
             BoxLayout:
                 MyClockWidget:
+
+        Screen:
+            name: 'people'
+            id: people
+            on_enter:
+                root.startScreenTiming()
+                root.read_server_status()
+            on_leave:
+                root.finishScreenTiming()
+            on_touch_down:
+                _screen_manager.current = 'clock'
+
+            BoxLayout:
+                orientation: 'vertical'
+
+                BoxLayout:
+                    orientation: 'horizontal'
+                    Label:
+                        text: 'Nepritomni'
+                        font_size: self.height/4
+                        color: 0.3,0.6,0.9,0.9
+                    Label:
+                        text: '0'
+                        id: peopleno
+                        font_size: self.height/4
+                        color: 0.3,0.6,0.9,0.9
+                BoxLayout:
+                    orientation: 'horizontal'
+                    Label:
+                        text: 'Pritomni'
+                        font_size: self.height/4
+                        color: 0.3,0.9,0.6,0.9
+                    Label:
+                        text: '0'
+                        id: peopleya
+                        font_size: self.height/4
+                        color: 0.3,0.9,0.6,0.9
+
 
         Screen:
             name: 'events'

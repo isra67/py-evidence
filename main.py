@@ -58,11 +58,13 @@ class Ticks(Widget):
 
 #App
 class Evidence(FloatLayout):
+    server = '192.168.1.47'
+    
     def __init__(self, **kwargs):
         print('Ini')
         super(Evidence, self).__init__(**kwargs)
         self.scrmngr = self.ids._screen_manager        
-        self.read_server_status('192.168.1.47')
+        self.read_server_status(self.server)
 
     def startScreenTiming(self):
         print('Enter')
@@ -80,16 +82,21 @@ class Evidence(FloatLayout):
         print('Event: ' + event)
         self.finishScreenTiming()
         self.return2clock()
-        self.read_server_status('192.168.1.47')
+        self.read_server_status(self.server)
         
-    def read_server_status(self, addr):
+    def read_server_status(self, addr=server):
         url = 'http://%s/inoteska/setdata.php?t=4' % addr 
         req = UrlRequest( url, self.decode_server_status)
 
     def decode_server_status(self, req, results):
+        peopleno = self.ids.peopleno
+        peopleya = self.ids.peopleya
+
         d = json.loads(results)
         for key, value in d.items():
             print(key, ': ', value)
+            if key=='prit': peopleya.text = value 
+            if key=='neprit': peopleno.text = value 
 
 
 class MainApp(App):
