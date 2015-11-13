@@ -6,6 +6,7 @@ Sources:
 '''
 
 from math import cos, sin, pi
+
 from kivy.app import App
 from kivy.clock import Clock, mainthread
 from kivy.graphics import Color, Line
@@ -16,6 +17,8 @@ from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import ScreenManager, Screen, RiseInTransition
 from kivy.uix.widget import Widget
+
+from urllib.parse import quote
 
 import datetime
 import hashlib
@@ -182,11 +185,11 @@ class Evidence(FloatLayout):
 
         par = 't=boarddata'
         par += '&c='+rfid
-        par += '&d='+urllib.parse.quote(xdate, safe='')
-        par += '&ty='+event #self.EVIDENCE_TYPE
+        par += '&d='+quote(xdate, safe='')
+        par += '&ty='+event
         par += '&ac='+self.ACCESS_TYPE
         par += '&dev='+self.DEVICE
-        par += '&x='+urllib.parse.quote(xhash, safe='')
+        par += '&x='+quote(xhash, safe='')
 
         print('UrlParam: ' + par)
         url = 'http://{0}{1}{2}'.format(self.EVIDENCE_SERVER, self.EVIDENCE_PATH, par) 
