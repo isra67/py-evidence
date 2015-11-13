@@ -18,11 +18,12 @@ from kivy.uix.screenmanager import ScreenManager, Screen, RiseInTransition
 from kivy.uix.widget import Widget
 
 import datetime
+import hashlib
 import json
-
-import threading
 import socket
 import sys
+import urllib
+import threading
 
 
 Builder.load_file("main1.kv")
@@ -67,17 +68,23 @@ class Ticks(Widget):
 
 #App
 class Evidence(FloatLayout):
-    server = '192.168.1.47'
+    DEVICE = '6'          # cislo zariadenia
+    EVIDENCE_TYPE = '15'  # typ udalosti dochadzky
+    ACCESS_TYPE = '2'     # typ vzniku udalosti
+    EVIDENCE_SERVER = '192.168.1.47:8080'
+    EVIDENCE_PATH = '/inoteska/setdata.php?'
+
     stop = threading.Event()
+    rfidKeyCode = ''
     
     def __init__(self, **kwargs):
         print('Ini')
         super(Evidence, self).__init__(**kwargs)
         self.scrmngr = self.ids._screen_manager        
-        self.read_server_status(self.server)
+        #self.read_server_status(self.EVIDENCE_SERVER)
         
-        # Start a new thread with an infinite loop and stop the current one.
-        d = threading.Thread(target=self.infinite_loop)#.start()
+        # Start a new thread with an infinite loop and stop the current one
+        d = threading.Thread(target=self.infinite_loop)
         d.setDaemon(True)
         d.start()
 
@@ -85,16 +92,16 @@ class Evidence(FloatLayout):
         self.sockserv_init()
         while True:
             if self.stop.is_set():
-                # Stop running this thread so the main Python process can exit.
+                # Stop running this thread so the main Python process can exit
                 return
                 
             #wait to accept a connection - blocking call
             conn, addr = self.s.accept()
             print('Connected with ' + addr[0] + ':' + str(addr[1]))
              
-            #start new thread takes 1st argument as a function name to be run, second is the tuple of arguments to the function.
+            #start new thread takes 1st argument as a function name to be run, 
+            # second is the tuple of arguments to the function
             threading.Thread(target=self.clientthread, args=(conn,)).start()
-            #start_new_thread(clientthread ,(conn,))
          
         self.s.close()
 
@@ -103,7 +110,7 @@ class Evidence(FloatLayout):
         PORT = 8888 # Arbitrary non-privileged port
          
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print('Socket created')
+        #print('Socket created')
          
         #Bind socket to local host and port
         try:
@@ -112,7 +119,7 @@ class Evidence(FloatLayout):
             print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
             sys.exit()
              
-        print('Socket bind complete')
+        #print('Socket bind complete')
          
         #Start listening on socket
         self.s.listen(10)
@@ -120,23 +127,32 @@ class Evidence(FloatLayout):
             
     #Function for handling connections. This will be used to create threads
     def clientthread(self, conn):
-        #Sending message to connected client
-        #conn.send(b'Welcome to the server. Type something and hit enter\n') #send only takes string
-         
-        #infinite loop so that function do not terminate and thread do not end.
+        msg = '' 
+        #infinite loop so that function do not terminate and thread do not end
         while not self.stop.is_set():             
             #Receiving from client
-            data = conn.recv(1024)
-            reply = 'OK...'# + data
-            if not data: 
+            data = conn.recv(512)
+
+            if not data:
+                print('NO DATA!!!')
                 break
          
-            #conn.sendall(reply)
-            print(data)
-            #if '"RFID":' in data:
-            #    self.swap_screen('events')
-            self.swap_screen('events')
+            msg += data.decode("utf-8")
+            print('MSG: ' + msg)
+            if '"RFID":' in msg:
+                if self.scrmngr.current == 'events':
+                    conn.sendall(b'RFID busy')
+                else:
+                    conn.sendall(b'RFID OK')
+                    self.swap_screen('events')
+                    #spracovanie RFID kodu:
+                    d = json.loads(msg)
+                    for key, value in d.items():
+                        print(key, ': ', value)
+                        if key=='RFID': self.rfidKeyCode = value                 
+                break
          
+        print('Out of client loop! ' + msg)
         #came out of loop
         conn.close()
         
@@ -145,7 +161,7 @@ class Evidence(FloatLayout):
         self.scrmngr.current = scr
         
     def startScreenTiming(self):
-        print('Enter')
+        #print('Enter')
         Clock.schedule_once(self.return2clock, 5)
 
     def return2clock(self, *args):
@@ -153,18 +169,47 @@ class Evidence(FloatLayout):
         self.scrmngr.current = 'clock'
 
     def finishScreenTiming(self):
-        print('Leave')
+        #print('Leave')
         Clock.unschedule(self.return2clock)
 
+    def saveEvidenceEvent(self, event, rfid):
+        xdate = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        a = self.rfidKeyCode + xdate 
+        b = hashlib.md5(b'inoteska').hexdigest() 
+        c = b + a
+
+        xhash = hashlib.md5(c.encode("utf-8")).hexdigest()
+
+        par = 't=boarddata'
+        par += '&c='+rfid
+        par += '&d='+urllib.parse.quote(xdate, safe='')
+        par += '&ty='+event #self.EVIDENCE_TYPE
+        par += '&ac='+self.ACCESS_TYPE
+        par += '&dev='+self.DEVICE
+        par += '&x='+urllib.parse.quote(xhash, safe='')
+
+        print('UrlParam: ' + par)
+        url = 'http://{0}{1}{2}'.format(self.EVIDENCE_SERVER, self.EVIDENCE_PATH, par) 
+        req = UrlRequest(url, self.decode_server_response)        
+        
     def processEvent(self, event):
-        print('Event: ' + event)
+        if self.rfidKeyCode == '':
+            print('Lost event - no RFID key')
+        else:
+            print('Event: ' + event + ' Code: ' + self.rfidKeyCode)
+            self.saveEvidenceEvent(event, self.rfidKeyCode)
+            self.rfidKeyCode = ''
+            
         self.finishScreenTiming()
         self.return2clock()
-        self.read_server_status(self.server)
-        
-    def read_server_status(self, addr=server):
-        url = 'http://%s/inoteska/setdata.php?t=4' % addr 
-        req = UrlRequest( url, self.decode_server_status)
+
+    def decode_server_response(self, req, results):
+        print('RESP: ' + results)
+        self.read_server_status(self.EVIDENCE_SERVER)        
+                
+    def read_server_status(self, addr=EVIDENCE_SERVER):
+        url = 'http://{0}{1}t=4'.format(addr, self.EVIDENCE_PATH) 
+        req = UrlRequest(url, self.decode_server_status)
 
     def decode_server_status(self, req, results):
         peopleno = self.ids.peopleno
