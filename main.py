@@ -18,9 +18,10 @@ from kivy.uix.label import Label
 from kivy.uix.screenmanager import ScreenManager, Screen, RiseInTransition
 from kivy.uix.widget import Widget
 
-#from urllib.parse import quote
-import urllib
-import urlparse
+try:
+    import urlparse
+except ImportError:
+    from urllib.parse import *
 
 import datetime
 import hashlib
@@ -192,7 +193,7 @@ class Evidence(FloatLayout):
         par += '&dev='+self.DEVICE
         par += '&x='+urllib.quote(xhash, safe='')
 
-        print('UrlParam: ' + par)
+        #print('UrlParam: ' + par)
         url = 'http://{0}{1}{2}'.format(self.EVIDENCE_SERVER, self.EVIDENCE_PATH, par)
         req = UrlRequest(url, self.decode_server_response)
 
@@ -234,6 +235,11 @@ class MainApp(App):
         self.root.stop.set()
 
     def build(self):
+        try:
+            print('0&x='+quote('ľščť +-*', safe=''))
+            print('1&x='+urllib.quote('ľščť +-*', safe=''))
+        except AttributeError:
+            print('2&x='+urllib.parse.quote('ľščť +-*', safe=''))
         return Evidence()
 
 
