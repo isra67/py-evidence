@@ -52,6 +52,32 @@
                         font_size: self.height/4
                         color: 0.3,0.9,0.6,0.9
 
+        Screen:
+            name: 'waitscr'
+            id: waitscr
+            on_enter:
+                root.startScreenTiming()
+            on_leave:
+                root.finishScreenTiming()
+            on_touch_down:
+                _screen_manager.current = 'clock'
+
+            BoxLayout:
+                orientation: 'vertical'
+
+                Label:
+                    text: 'Oznam:'
+                    font_size: self.height/5
+                    color: 0.6,0.6,0.6,0.9
+                Label:
+                    text: ''
+                    id: lblresult
+                    font_size: self.height/3
+                    color: 0.9,0.9,0.9,0.9
+                Label:
+                    text: ''
+                    font_size: self.height/5
+                    color: 0.6,0.6,0.6,0.9
 
         Screen:
             name: 'events'

@@ -88,6 +88,8 @@ class Evidence(FloatLayout):
         super(Evidence, self).__init__(**kwargs)
         self.scrmngr = self.ids._screen_manager
 
+        print('test quote: ' + self.myQuote(u'123 +-*'))
+
         # Start a new thread with an infinite loop and stop the current one
         d = threading.Thread(target=self.infinite_loop)
         d.setDaemon(True)
@@ -115,7 +117,6 @@ class Evidence(FloatLayout):
         PORT = 8888 # Arbitrary non-privileged port
 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #print('Socket created')
 
         #Bind socket to local host and port
         try:
@@ -124,15 +125,13 @@ class Evidence(FloatLayout):
             print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
             sys.exit()
 
-        #print('Socket bind complete')
-
         #Start listening on socket
         self.s.listen(10)
-        print('Socket now listening')
+#        print('Socket now listening')
 
     #Function for handling connections. This will be used to create threads
     def clientthread(self, conn):
-        msg = '' 
+        msg = ''
         #infinite loop so that function do not terminate and thread do not end
         while not self.stop.is_set():
             #Receiving from client
@@ -157,7 +156,7 @@ class Evidence(FloatLayout):
                         if key=='RFID': self.rfidKeyCode = value
                 break
 
-        print('Out of client loop! ' + msg)
+#        print('Out of client loop! ' + msg)
         #came out of loop
         conn.close()
 
@@ -170,49 +169,62 @@ class Evidence(FloatLayout):
         Clock.schedule_once(self.return2clock, 5)
 
     def return2clock(self, *args):
-        print('ret2clock')
-        self.scrmngr.current = 'clock'
+#        print('ret2clock')
+        self.swap_screen('clock')
 
     def finishScreenTiming(self):
         #print('Leave')
         Clock.unschedule(self.return2clock)
 
+    def myQuote(self, par):
+        try:
+            a = quote(par, safe='')
+        except NameError:
+            a = urllib.quote(par, safe='')
+        return a
+
     def saveEvidenceEvent(self, event, rfid):
         xdate = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        a = self.rfidKeyCode + xdate 
-        b = hashlib.md5(b'inoteska').hexdigest() 
+        a = self.rfidKeyCode + xdate
+        b = hashlib.md5(b'inoteska').hexdigest()
         c = b + a
 
         xhash = hashlib.md5(c.encode("utf-8")).hexdigest()
 
         par = 't=boarddata'
-        par += '&c='+rfid
-        par += '&d='+urllib.quote(xdate, safe='')
-        par += '&ty='+event
-        par += '&ac='+self.ACCESS_TYPE
-        par += '&dev='+self.DEVICE
-        par += '&x='+urllib.quote(xhash, safe='')
+        par += '&c=' + rfid
+        par += '&d=' + self.myQuote(xdate)
+        par += '&ty=' + event
+        par += '&ac=' + self.ACCESS_TYPE
+        par += '&dev=' + self.DEVICE
+        par += '&x=' + self.myQuote(xhash)
 
-        #print('UrlParam: ' + par)
         url = 'http://{0}{1}{2}'.format(self.EVIDENCE_SERVER, self.EVIDENCE_PATH, par)
         req = UrlRequest(url, self.decode_server_response)
 
     def processEvent(self, event):
+        self.finishScreenTiming()
+
         if self.rfidKeyCode == '':
             print('Lost event - no RFID key')
+            self.return2clock()
         else:
             print('Event: ' + event + ' Code: ' + self.rfidKeyCode)
+            self.swap_screen('waitscr')
             self.saveEvidenceEvent(event, self.rfidKeyCode)
             self.rfidKeyCode = ''
 
-        self.finishScreenTiming()
-        self.return2clock()
-
     def decode_server_response(self, req, results):
-        print('RESP: ' + results)
-        self.read_server_status(self.EVIDENCE_SERVER)
+#        print('RESP: ' + results)
+        Clock.schedule_once(self.return2clock, 3)
+        rqresult = self.ids.lblresult
 
-    def read_server_status(self, addr=EVIDENCE_SERVER):
+        if 'ERROR' in results:
+            rqresult.text = 'CHYBA!'
+        else:
+            rqresult.text = 'OK'
+
+    def read_server_status(self, addr = EVIDENCE_SERVER):
         url = 'http://{0}{1}t=4'.format(addr, self.EVIDENCE_PATH)
         req = UrlRequest(url, self.decode_server_status)
 
@@ -222,7 +234,7 @@ class Evidence(FloatLayout):
 
         d = json.loads(results)
         for key, value in d.items():
-            print(key, ': ', value)
+#            print(key, ': ', value)
             if key == 'prit': peopleya.text = value
             if key == 'neprit': peopleno.text = value
 
@@ -235,11 +247,6 @@ class MainApp(App):
         self.root.stop.set()
 
     def build(self):
-        try:
-            print('0&x='+quote('ľščť +-*', safe=''))
-            print('1&x='+urllib.quote('ľščť +-*', safe=''))
-        except AttributeError:
-            print('2&x='+urllib.parse.quote('ľščť +-*', safe=''))
         return Evidence()
 
 
