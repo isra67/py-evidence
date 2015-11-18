@@ -18,7 +18,9 @@ from kivy.uix.label import Label
 from kivy.uix.screenmanager import ScreenManager, Screen, RiseInTransition
 from kivy.uix.widget import Widget
 
-from urllib.parse import quote
+#from urllib.parse import quote
+import urllib
+import urlparse
 
 import datetime
 import hashlib
@@ -40,7 +42,7 @@ class DigiClock(Label):
     def __init__(self, **kwargs):
         super(DigiClock, self).__init__(**kwargs)
         Clock.schedule_interval(self.update, 1)
-        
+
     def update(self, *args):
         self.text = datetime.datetime.now().strftime("%d.%m.%Y     %H:%M:%S")
 
@@ -79,13 +81,12 @@ class Evidence(FloatLayout):
 
     stop = threading.Event()
     rfidKeyCode = ''
-    
+
     def __init__(self, **kwargs):
         print('Ini')
         super(Evidence, self).__init__(**kwargs)
-        self.scrmngr = self.ids._screen_manager        
-        #self.read_server_status(self.EVIDENCE_SERVER)
-        
+        self.scrmngr = self.ids._screen_manager
+
         # Start a new thread with an infinite loop and stop the current one
         d = threading.Thread(target=self.infinite_loop)
         d.setDaemon(True)
@@ -97,49 +98,49 @@ class Evidence(FloatLayout):
             if self.stop.is_set():
                 # Stop running this thread so the main Python process can exit
                 return
-                
+
             #wait to accept a connection - blocking call
             conn, addr = self.s.accept()
             print('Connected with ' + addr[0] + ':' + str(addr[1]))
-             
-            #start new thread takes 1st argument as a function name to be run, 
+
+            #start new thread takes 1st argument as a function name to be run,
             # second is the tuple of arguments to the function
             threading.Thread(target=self.clientthread, args=(conn,)).start()
-         
+
         self.s.close()
 
-    def sockserv_init(self):    
+    def sockserv_init(self):
         HOST = ''   # Symbolic name meaning all available interfaces
         PORT = 8888 # Arbitrary non-privileged port
-         
+
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         #print('Socket created')
-         
+
         #Bind socket to local host and port
         try:
             self.s.bind((HOST, PORT))
         except socket.error as msg:
             print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
             sys.exit()
-             
+
         #print('Socket bind complete')
-         
+
         #Start listening on socket
         self.s.listen(10)
         print('Socket now listening')
-            
+
     #Function for handling connections. This will be used to create threads
     def clientthread(self, conn):
         msg = '' 
         #infinite loop so that function do not terminate and thread do not end
-        while not self.stop.is_set():             
+        while not self.stop.is_set():
             #Receiving from client
             data = conn.recv(512)
 
             if not data:
                 print('NO DATA!!!')
                 break
-         
+
             msg += data.decode("utf-8")
             print('MSG: ' + msg)
             if '"RFID":' in msg:
@@ -152,17 +153,17 @@ class Evidence(FloatLayout):
                     d = json.loads(msg)
                     for key, value in d.items():
                         print(key, ': ', value)
-                        if key=='RFID': self.rfidKeyCode = value                 
+                        if key=='RFID': self.rfidKeyCode = value
                 break
-         
+
         print('Out of client loop! ' + msg)
         #came out of loop
         conn.close()
-        
+
     @mainthread
     def swap_screen(self, scr):
         self.scrmngr.current = scr
-        
+
     def startScreenTiming(self):
         #print('Enter')
         Clock.schedule_once(self.return2clock, 5)
@@ -185,16 +186,16 @@ class Evidence(FloatLayout):
 
         par = 't=boarddata'
         par += '&c='+rfid
-        par += '&d='+quote(xdate, safe='')
+        par += '&d='+urllib.quote(xdate, safe='')
         par += '&ty='+event
         par += '&ac='+self.ACCESS_TYPE
         par += '&dev='+self.DEVICE
-        par += '&x='+quote(xhash, safe='')
+        par += '&x='+urllib.quote(xhash, safe='')
 
         print('UrlParam: ' + par)
-        url = 'http://{0}{1}{2}'.format(self.EVIDENCE_SERVER, self.EVIDENCE_PATH, par) 
-        req = UrlRequest(url, self.decode_server_response)        
-        
+        url = 'http://{0}{1}{2}'.format(self.EVIDENCE_SERVER, self.EVIDENCE_PATH, par)
+        req = UrlRequest(url, self.decode_server_response)
+
     def processEvent(self, event):
         if self.rfidKeyCode == '':
             print('Lost event - no RFID key')
@@ -202,16 +203,16 @@ class Evidence(FloatLayout):
             print('Event: ' + event + ' Code: ' + self.rfidKeyCode)
             self.saveEvidenceEvent(event, self.rfidKeyCode)
             self.rfidKeyCode = ''
-            
+
         self.finishScreenTiming()
         self.return2clock()
 
     def decode_server_response(self, req, results):
         print('RESP: ' + results)
-        self.read_server_status(self.EVIDENCE_SERVER)        
-                
+        self.read_server_status(self.EVIDENCE_SERVER)
+
     def read_server_status(self, addr=EVIDENCE_SERVER):
-        url = 'http://{0}{1}t=4'.format(addr, self.EVIDENCE_PATH) 
+        url = 'http://{0}{1}t=4'.format(addr, self.EVIDENCE_PATH)
         req = UrlRequest(url, self.decode_server_status)
 
     def decode_server_status(self, req, results):
@@ -221,8 +222,8 @@ class Evidence(FloatLayout):
         d = json.loads(results)
         for key, value in d.items():
             print(key, ': ', value)
-            if key=='prit': peopleya.text = value 
-            if key=='neprit': peopleno.text = value 
+            if key == 'prit': peopleya.text = value
+            if key == 'neprit': peopleno.text = value
 
 
 class MainApp(App):
@@ -231,7 +232,7 @@ class MainApp(App):
         # otherwise the app window will close, but the Python process will
         # keep running until all secondary threads exit.
         self.root.stop.set()
-        
+
     def build(self):
         return Evidence()
 
