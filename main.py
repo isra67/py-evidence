@@ -9,6 +9,7 @@ from math import cos, sin, pi
 
 from kivy.app import App
 from kivy.clock import Clock, mainthread
+from kivy.config import ConfigParser
 from kivy.graphics import Color, Line
 from kivy.lang import Builder
 from kivy.network.urlrequest import UrlRequest
@@ -55,8 +56,8 @@ class MyClockWidget(FloatLayout):
 class Ticks(Widget):
     def __init__(self, **kwargs):
         super(Ticks, self).__init__(**kwargs)
-        self.bind(pos=self.update_clock)
-        self.bind(size=self.update_clock)
+        self.bind(pos = self.update_clock)
+        self.bind(size = self.update_clock)
         Clock.schedule_interval(self.update_clock, 1)
 
     def update_clock(self, *args):
@@ -64,34 +65,36 @@ class Ticks(Widget):
         with self.canvas:
             time = datetime.datetime.now()
             Color(0.6, 0.6, 0.9)
-            Line(points=[self.center_x, self.center_y, self.center_x+0.7*self.r*sin(pi/30*time.second), self.center_y+0.7*self.r*cos(pi/30*time.second)], width=1, cap="round")
+            Line(points = [self.center_x, self.center_y, self.center_x+0.7*self.r*sin(pi/30*time.second), self.center_y+0.7*self.r*cos(pi/30*time.second)], width=1, cap="round")
             Color(0.5, 0.5, 0.8)
-            Line(points=[self.center_x, self.center_y, self.center_x+0.6*self.r*sin(pi/30*time.minute), self.center_y+0.6*self.r*cos(pi/30*time.minute)], width=2, cap="round")
+            Line(points = [self.center_x, self.center_y, self.center_x+0.6*self.r*sin(pi/30*time.minute), self.center_y+0.6*self.r*cos(pi/30*time.minute)], width=2, cap="round")
             Color(0.4, 0.4, 0.7)
             th = time.hour*60 + time.minute
-            Line(points=[self.center_x, self.center_y, self.center_x+0.5*self.r*sin(pi/360*th), self.center_y+0.5*self.r*cos(pi/360*th)], width=3, cap="round")
+            Line(points = [self.center_x, self.center_y, self.center_x+0.5*self.r*sin(pi/360*th), self.center_y+0.5*self.r*cos(pi/360*th)], width=3, cap="round")
 
 
 #App
 class Evidence(FloatLayout):
-    DEVICE = '6'          # cislo zariadenia
-    EVIDENCE_TYPE = '15'  # typ udalosti dochadzky
-    ACCESS_TYPE = '2'     # typ vzniku udalosti
-    EVIDENCE_SERVER = '192.168.1.47:8080'
-    EVIDENCE_PATH = '/inoteska/setdata.php?'
-
     stop = threading.Event()
     rfidKeyCode = ''
+    config = ConfigParser()
+    config.read('myconfig.ini')
 
     def __init__(self, **kwargs):
         print('Ini')
         super(Evidence, self).__init__(**kwargs)
         self.scrmngr = self.ids._screen_manager
 
-        print('test quote: ' + self.myQuote(u'123 +-*'))
+        self.DEVICE = self.config.get('evidence', 'device')
+        self.EVIDENCE_TYPE = self.config.get('evidence', 'evidence_type')
+        self.ACCESS_TYPE = self.config.get('evidence', 'access_type')
+        self.EVIDENCE_SERVER = self.config.get('evidence', 'evidence_server')
+        self.EVIDENCE_PATH = self.config.get('evidence', 'evidence_path')
+
+#        print('test quote: ' + self.myQuote(u'123 +-*'))
 
         # Start a new thread with an infinite loop and stop the current one
-        d = threading.Thread(target=self.infinite_loop)
+        d = threading.Thread(target = self.infinite_loop)
         d.setDaemon(True)
         d.start()
 
@@ -113,8 +116,10 @@ class Evidence(FloatLayout):
         self.s.close()
 
     def sockserv_init(self):
-        HOST = ''   # Symbolic name meaning all available interfaces
-        PORT = 8888 # Arbitrary non-privileged port
+#        HOST = ''   # Symbolic name meaning all available interfaces
+#        PORT = 8888 # Arbitrary non-privileged port
+        HOST = self.config.get('server', 'host')
+        PORT = self.config.getint('server', 'port')
 
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -127,7 +132,6 @@ class Evidence(FloatLayout):
 
         #Start listening on socket
         self.s.listen(10)
-#        print('Socket now listening')
 
     #Function for handling connections. This will be used to create threads
     def clientthread(self, conn):
@@ -142,7 +146,7 @@ class Evidence(FloatLayout):
                 break
 
             msg += data.decode("utf-8")
-            print('MSG: ' + msg)
+#            print('MSG: ' + msg)
             if '"RFID":' in msg:
                 if self.scrmngr.current == 'events':
                     conn.sendall(b'RFID busy')
@@ -153,7 +157,7 @@ class Evidence(FloatLayout):
                     d = json.loads(msg)
                     for key, value in d.items():
                         print(key, ': ', value)
-                        if key=='RFID': self.rfidKeyCode = value
+                        if key == 'RFID': self.rfidKeyCode = value
                 break
 
 #        print('Out of client loop! ' + msg)
@@ -178,12 +182,13 @@ class Evidence(FloatLayout):
 
     def myQuote(self, par):
         try:
-            a = quote(par, safe='')
+            a = quote(par, safe = '')
         except NameError:
-            a = urllib.quote(par, safe='')
+            a = urllib.quote(par, safe = '')
         return a
 
     def saveEvidenceEvent(self, event, rfid):
+        rfid = rfid.replace("UNDEFINED", "")
         xdate = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         a = self.rfidKeyCode + xdate
         b = hashlib.md5(b'inoteska').hexdigest()
@@ -215,16 +220,17 @@ class Evidence(FloatLayout):
             self.rfidKeyCode = ''
 
     def decode_server_response(self, req, results):
-#        print('RESP: ' + results)
         Clock.schedule_once(self.return2clock, 3)
         rqresult = self.ids.lblresult
 
         if 'ERROR' in results:
             rqresult.text = 'CHYBA!'
+            print('RESP: ' + results)
         else:
             rqresult.text = 'OK'
 
-    def read_server_status(self, addr = EVIDENCE_SERVER):
+    def read_server_status(self):
+        addr = self.EVIDENCE_SERVER
         url = 'http://{0}{1}t=4'.format(addr, self.EVIDENCE_PATH)
         req = UrlRequest(url, self.decode_server_status)
 
@@ -245,6 +251,15 @@ class MainApp(App):
         # otherwise the app window will close, but the Python process will
         # keep running until all secondary threads exit.
         self.root.stop.set()
+
+#    def build_config(self, config):
+#        config.setdefaults('evidence', {
+#            'device': '6',                            # cislo zariadenia
+#            'evidence_type': '15',                    # typ udalosti dochadzky
+#            'access_type': '2',                       # typ vzniku udalosti
+#            'evidence_server': '192.168.1.47:8080',   # DB server
+#            'evidence_path': '/inoteska/setdata.php?' # spracovavajuci skript
+#        })
 
     def build(self):
         return Evidence()
