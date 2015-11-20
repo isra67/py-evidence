@@ -78,18 +78,22 @@ class Evidence(FloatLayout):
     stop = threading.Event()
     rfidKeyCode = ''
     config = ConfigParser()
-    config.read('myconfig.ini')
+    config.read('myconfig.ini')                             # konfiguracny subor
 
     def __init__(self, **kwargs):
         print('Ini')
         super(Evidence, self).__init__(**kwargs)
         self.scrmngr = self.ids._screen_manager
 
+        # nacitanie konfiguracie
         self.DEVICE = self.config.get('evidence', 'device')
         self.EVIDENCE_TYPE = self.config.get('evidence', 'evidence_type')
         self.ACCESS_TYPE = self.config.get('evidence', 'access_type')
         self.EVIDENCE_SERVER = self.config.get('evidence', 'evidence_server')
         self.EVIDENCE_PATH = self.config.get('evidence', 'evidence_path')
+
+        self.HOST = self.config.get('server', 'host')
+        self.PORT = self.config.getint('server', 'port')
 
 #        print('test quote: ' + self.myQuote(u'123 +-*'))
 
@@ -107,7 +111,7 @@ class Evidence(FloatLayout):
 
             #wait to accept a connection - blocking call
             conn, addr = self.s.accept()
-            print('Connected with ' + addr[0] + ':' + str(addr[1]))
+#            print('Connected with ' + addr[0] + ':' + str(addr[1]))
 
             #start new thread takes 1st argument as a function name to be run,
             # second is the tuple of arguments to the function
@@ -116,16 +120,11 @@ class Evidence(FloatLayout):
         self.s.close()
 
     def sockserv_init(self):
-#        HOST = ''   # Symbolic name meaning all available interfaces
-#        PORT = 8888 # Arbitrary non-privileged port
-        HOST = self.config.get('server', 'host')
-        PORT = self.config.getint('server', 'port')
-
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         #Bind socket to local host and port
         try:
-            self.s.bind((HOST, PORT))
+            self.s.bind((self.HOST, self.PORT))
         except socket.error as msg:
             print('Bind failed. Error Code : ' + str(msg[0]) + ' Message ' + msg[1])
             sys.exit()
@@ -152,13 +151,17 @@ class Evidence(FloatLayout):
                     conn.sendall(b'RFID busy')
                 else:
                     conn.sendall(b'RFID OK')
-                    self.swap_screen('events')
+
                     #spracovanie RFID kodu:
                     d = json.loads(msg)
                     for key, value in d.items():
-                        print(key, ': ', value)
-                        if key == 'RFID': self.rfidKeyCode = value
-                break
+#                        print(key, ': ', value)
+                        if key == 'RFID':
+                            self.rfidKeyCode = value.replace("UNDEFINED", "")
+
+                    self.swap_screen('events')
+                msg = ''
+#                break
 
 #        print('Out of client loop! ' + msg)
         #came out of loop
@@ -188,7 +191,6 @@ class Evidence(FloatLayout):
         return a
 
     def saveEvidenceEvent(self, event, rfid):
-        rfid = rfid.replace("UNDEFINED", "")
         xdate = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         a = self.rfidKeyCode + xdate
         b = hashlib.md5(b'inoteska').hexdigest()
@@ -197,24 +199,23 @@ class Evidence(FloatLayout):
         xhash = hashlib.md5(c.encode("utf-8")).hexdigest()
 
         par = 't=boarddata'
-        par += '&c=' + rfid
+        par += '&x=' + self.myQuote(xhash)
         par += '&d=' + self.myQuote(xdate)
-        par += '&ty=' + event
         par += '&ac=' + self.ACCESS_TYPE
         par += '&dev=' + self.DEVICE
-        par += '&x=' + self.myQuote(xhash)
+        par += '&c=' + rfid + '&ty=' + event
 
         url = 'http://{0}{1}{2}'.format(self.EVIDENCE_SERVER, self.EVIDENCE_PATH, par)
         req = UrlRequest(url, self.decode_server_response)
 
     def processEvent(self, event):
-        self.finishScreenTiming()
+#        self.finishScreenTiming()
 
         if self.rfidKeyCode == '':
-            print('Lost event - no RFID key')
+#            print('Lost event - no RFID key')
             self.return2clock()
         else:
-            print('Event: ' + event + ' Code: ' + self.rfidKeyCode)
+            #print('Event: ' + event + ' Code: ' + self.rfidKeyCode)
             self.swap_screen('waitscr')
             self.saveEvidenceEvent(event, self.rfidKeyCode)
             self.rfidKeyCode = ''
@@ -230,19 +231,15 @@ class Evidence(FloatLayout):
             rqresult.text = 'OK'
 
     def read_server_status(self):
-        addr = self.EVIDENCE_SERVER
-        url = 'http://{0}{1}t=4'.format(addr, self.EVIDENCE_PATH)
+        url = 'http://{0}{1}t=4'.format(self.EVIDENCE_SERVER, self.EVIDENCE_PATH)
         req = UrlRequest(url, self.decode_server_status)
 
     def decode_server_status(self, req, results):
-        peopleno = self.ids.peopleno
-        peopleya = self.ids.peopleya
-
         d = json.loads(results)
         for key, value in d.items():
 #            print(key, ': ', value)
-            if key == 'prit': peopleya.text = value
-            if key == 'neprit': peopleno.text = value
+            if key == 'prit': self.ids.peopleya.text = value
+            if key == 'neprit': self.ids.peopleno.text = value
 
 
 class MainApp(App):
@@ -251,15 +248,6 @@ class MainApp(App):
         # otherwise the app window will close, but the Python process will
         # keep running until all secondary threads exit.
         self.root.stop.set()
-
-#    def build_config(self, config):
-#        config.setdefaults('evidence', {
-#            'device': '6',                            # cislo zariadenia
-#            'evidence_type': '15',                    # typ udalosti dochadzky
-#            'access_type': '2',                       # typ vzniku udalosti
-#            'evidence_server': '192.168.1.47:8080',   # DB server
-#            'evidence_path': '/inoteska/setdata.php?' # spracovavajuci skript
-#        })
 
     def build(self):
         return Evidence()
