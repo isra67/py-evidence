@@ -5,19 +5,23 @@ Sources:
   https://github.com/kivy/kivy/wiki/Working-with-Python-threads-inside-a-Kivy-application
 '''
 
+from glob import glob
 from math import cos, sin, pi
 
 from kivy.app import App
 from kivy.clock import Clock, mainthread
 from kivy.config import ConfigParser
-from kivy.graphics import Color, Line
+from kivy.graphics import Color, Line, Rectangle, Ellipse
 from kivy.lang import Builder
 from kivy.network.urlrequest import UrlRequest
-from kivy.properties import NumericProperty
+from kivy.properties import NumericProperty, ObjectProperty
 from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.image import AsyncImage, Image
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import ScreenManager, Screen, RiseInTransition
 from kivy.uix.widget import Widget
+
+from os.path import join, dirname
 
 try:
     import urlparse
@@ -27,6 +31,7 @@ except ImportError:
 import datetime
 import hashlib
 import json
+import random
 import socket
 import sys
 import urllib
@@ -54,16 +59,70 @@ class MyClockWidget(FloatLayout):
     pass
 
 class Ticks(Widget):
+    galleryIndex = 0
+    gallery = []
+    img = Image()
+    ln = Label()
+
     def __init__(self, **kwargs):
         super(Ticks, self).__init__(**kwargs)
         self.bind(pos = self.update_clock)
         self.bind(size = self.update_clock)
+
+        self.ln.text = '[color=ff3333] Evidence 2.0 [/color]'
+        self.ln.pos = self.pos
+        self.ln.size = self.size
+        self.ln.font_size = '32sp'
+        self.ln.text_size = self.size
+        self.ln.halign = 'right'
+        self.ln.valign = 'bottom'
+        self.ln.markup = True
+
+        self.load_img_list()
         Clock.schedule_interval(self.update_clock, 1)
 
+    def load_img_list(self, *args):
+        # get any files into images directory
+        curdir = dirname(__file__)
+
+        for filename in glob(join(curdir, 'gallery', '*')):
+            self.gallery.append( filename )
+
+#        self.img.source = self.gallery[self.galleryIndex]
+#        self.img.pos = self.pos
+#        self.img.size = self.size
+#        self.img.anim_delay = 1.5
+#        self.add_widget(self.img)
+
     def update_clock(self, *args):
+        time = datetime.datetime.now()
         self.canvas.clear()
+
+        if time.second % 5 == 0:
+            ni = self.galleryIndex
+            while ni == self.galleryIndex:
+                ni = random.randint(0,len(self.gallery) - 1)
+            self.galleryIndex = ni
+
+        self.remove_widget(self.ln)
+        self.remove_widget(self.img)
+        self.img.source = self.gallery[self.galleryIndex]
+        self.img.pos = self.pos
+        self.img.size = self.size
+        self.ln.pos = self.pos
+        self.ln.size = self.size
+#        self.ln.font_size = '32sp'
+        self.ln.text_size = self.size
+#        self.ln.halign = 'right'
+#        self.ln.valign = 'bottom'
+#        self.ln.markup = True
+        self.add_widget(self.img)
+        self.add_widget(self.ln)
+
         with self.canvas:
-            time = datetime.datetime.now()
+            Color(.1, .1, .6, .15)
+            Ellipse(pos={self.y + 19,self.width / 4}, size={self.width / 2, self.height - 38})
+
             Color(0.6, 0.6, 0.9)
             Line(points = [self.center_x, self.center_y, self.center_x+0.7*self.r*sin(pi/30*time.second), self.center_y+0.7*self.r*cos(pi/30*time.second)], width=1, cap="round")
             Color(0.5, 0.5, 0.8)
@@ -210,7 +269,6 @@ class Evidence(FloatLayout):
 
     def processEvent(self, event):
 #        self.finishScreenTiming()
-
         if self.rfidKeyCode == '':
 #            print('Lost event - no RFID key')
             self.return2clock()

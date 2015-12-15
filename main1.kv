@@ -13,6 +13,7 @@
             id: clock
             on_touch_down: _screen_manager.current = 'people'
             BoxLayout:
+#                DigiClockWidget:
                 MyClockWidget:
 
         Screen:
@@ -158,41 +159,49 @@
 <MyClockWidget>:
     face: face
     ticks: ticks
+    canvas:
+        Color:
+            rgba: 1,1,1,1
     FloatLayout:
         id: face
         size_hint: None, None
         pos_hint: {"center_x":0.5, "center_y":0.5}
         size: 0.9*min(root.size), 0.9*min(root.size)
-        canvas:
-            Color:
-                rgb: 0.1, 0.1, 0.2
-            Ellipse:
-                size: self.size
-                pos: self.pos
-        ClockNumber:
-            i: 1
-        ClockNumber:
-            i: 2
-        ClockNumber:
-            i: 3
-        ClockNumber:
-            i: 4
-        ClockNumber:
-            i: 5
-        ClockNumber:
-            i: 6
-        ClockNumber:
-            i: 7
-        ClockNumber:
-            i: 8
-        ClockNumber:
-            i: 9
-        ClockNumber:
-            i: 10
-        ClockNumber:
-            i: 11
-        ClockNumber:
-            i: 12
+#        canvas:
+#            Color:
+#                rgba: .1, .1, .5, .9
+#            Ellipse:
+#                size: self.size
+#                pos: self.pos
+#        Image:
+#            id: bg_img
+#            pos: self.pos
+#            size: self.size
+#            anim_delay: 1.5
+#        ClockNumber:
+#            i: 1
+#        ClockNumber:
+#            i: 2
+#        ClockNumber:
+#            i: 3
+#        ClockNumber:
+#            i: 4
+#        ClockNumber:
+#            i: 5
+#        ClockNumber:
+#            i: 6
+#        ClockNumber:
+#            i: 7
+#        ClockNumber:
+#            i: 8
+#        ClockNumber:
+#            i: 9
+#        ClockNumber:
+#            i: 10
+#        ClockNumber:
+#            i: 11
+#        ClockNumber:
+#            i: 12
     Ticks:
         id: ticks
         r: min(root.size)*0.9/2
