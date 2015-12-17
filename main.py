@@ -20,7 +20,7 @@ from kivy.network.urlrequest import UrlRequest
 from kivy.properties import ListProperty 
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.gridlayout import GridLayout
-from kivy.uix.image import AsyncImage as mImage
+from kivy.uix.image import Image as mImage
 from kivy.uix.label import Label
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.widget import Widget
@@ -52,6 +52,7 @@ import mlib
 
 Builder.load_file("main1.kv")
 
+IMG_TIME = 8
 
 # Clock class - digital
 class DigiClockWidget(FloatLayout):
@@ -104,7 +105,7 @@ class Ticks(Widget):
         time = datetime.datetime.now()
         self.canvas.clear()
 
-        if time.second % 5 == 0:
+        if time.second % IMG_TIME == 0:
             ni = self.galleryIndex
             while ni == self.galleryIndex:
                 ni = random.randint(0,len(self.gallery) - 1)
@@ -139,6 +140,7 @@ class Evidence(FloatLayout):
     stop = threading.Event()
     rfidKeyCode = ''
     config = ConfigParser()
+    config.read('./myconfig.ini') # konfiguracny subor
     my_data = ListProperty([])
 
     def __init__(self, **kwargs):
@@ -146,7 +148,10 @@ class Evidence(FloatLayout):
         super(Evidence, self).__init__(**kwargs)
         self.scrmngr = self.ids._screen_manager
         
-        self.config.read(dirname(__file__) + '/' + 'myconfig.ini') # konfiguracny subor
+        try:
+            self.config.read(dirname(__file__) + '/' + 'myconfig.ini') # konfiguracny subor
+        except:
+            pass
 
         # nacitanie konfiguracie
         self.DEVICE = self.config.get('evidence', 'device')
