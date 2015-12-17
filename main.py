@@ -1,6 +1,9 @@
 #!/bin/python
 
 '''
+Evicence 2.0
+(C) IS 2015
+
 Sources:
   https://github.com/kivy/kivy/wiki/Working-with-Python-threads-inside-a-Kivy-application
 '''
@@ -14,12 +17,14 @@ from kivy.config import ConfigParser
 from kivy.graphics import Color, Line, Rectangle, Ellipse
 from kivy.lang import Builder
 from kivy.network.urlrequest import UrlRequest
-from kivy.properties import NumericProperty, ObjectProperty
+from kivy.properties import ListProperty 
 from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.image import AsyncImage, Image
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.image import AsyncImage as mImage
 from kivy.uix.label import Label
-from kivy.uix.screenmanager import ScreenManager, Screen, RiseInTransition
+from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.widget import Widget
+#from kivy.utils import get_color_from_hex
 
 from os.path import join, dirname
 
@@ -29,13 +34,20 @@ except ImportError:
     from urllib.parse import *
 
 import datetime
+import feedparser
 import hashlib
 import json
 import random
+##import os.path
 import socket
 import sys
 import urllib
 import threading
+
+
+# IS packages:
+##sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+import mlib
 
 
 Builder.load_file("main1.kv")
@@ -61,7 +73,7 @@ class MyClockWidget(FloatLayout):
 class Ticks(Widget):
     galleryIndex = 0
     gallery = []
-    img = Image()
+    img = mImage()
     ln = Label()
 
     def __init__(self, **kwargs):
@@ -88,12 +100,6 @@ class Ticks(Widget):
         for filename in glob(join(curdir, 'gallery', '*')):
             self.gallery.append( filename )
 
-#        self.img.source = self.gallery[self.galleryIndex]
-#        self.img.pos = self.pos
-#        self.img.size = self.size
-#        self.img.anim_delay = 1.5
-#        self.add_widget(self.img)
-
     def update_clock(self, *args):
         time = datetime.datetime.now()
         self.canvas.clear()
@@ -111,11 +117,7 @@ class Ticks(Widget):
         self.img.size = self.size
         self.ln.pos = self.pos
         self.ln.size = self.size
-#        self.ln.font_size = '32sp'
         self.ln.text_size = self.size
-#        self.ln.halign = 'right'
-#        self.ln.valign = 'bottom'
-#        self.ln.markup = True
         self.add_widget(self.img)
         self.add_widget(self.ln)
 
@@ -137,12 +139,14 @@ class Evidence(FloatLayout):
     stop = threading.Event()
     rfidKeyCode = ''
     config = ConfigParser()
-    config.read('myconfig.ini')                             # konfiguracny subor
+    my_data = ListProperty([])
 
     def __init__(self, **kwargs):
         print('Ini')
         super(Evidence, self).__init__(**kwargs)
         self.scrmngr = self.ids._screen_manager
+        
+        self.config.read(dirname(__file__) + '/' + 'myconfig.ini') # konfiguracny subor
 
         # nacitanie konfiguracie
         self.DEVICE = self.config.get('evidence', 'device')
@@ -150,11 +154,14 @@ class Evidence(FloatLayout):
         self.ACCESS_TYPE = self.config.get('evidence', 'access_type')
         self.EVIDENCE_SERVER = self.config.get('evidence', 'evidence_server')
         self.EVIDENCE_PATH = self.config.get('evidence', 'evidence_path')
+        self.EVIDENCE_GET_PATH = self.config.get('evidence', 'evidence_get_path')
 
         self.HOST = self.config.get('server', 'host')
         self.PORT = self.config.getint('server', 'port')
 
 #        print('test quote: ' + self.myQuote(u'123 +-*'))
+
+#        mlib.lrss()
 
         # Start a new thread with an infinite loop and stop the current one
         d = threading.Thread(target = self.infinite_loop)
@@ -214,7 +221,6 @@ class Evidence(FloatLayout):
                     #spracovanie RFID kodu:
                     d = json.loads(msg)
                     for key, value in d.items():
-#                        print(key, ': ', value)
                         if key == 'RFID':
                             self.rfidKeyCode = value.replace("UNDEFINED", "")
 
@@ -268,9 +274,8 @@ class Evidence(FloatLayout):
         req = UrlRequest(url, self.decode_server_response)
 
     def processEvent(self, event):
-#        self.finishScreenTiming()
         if self.rfidKeyCode == '':
-#            print('Lost event - no RFID key')
+            print('Lost event - no RFID key')
             self.return2clock()
         else:
             #print('Event: ' + event + ' Code: ' + self.rfidKeyCode)
@@ -291,14 +296,53 @@ class Evidence(FloatLayout):
     def read_server_status(self):
         url = 'http://{0}{1}t=4'.format(self.EVIDENCE_SERVER, self.EVIDENCE_PATH)
         req = UrlRequest(url, self.decode_server_status)
-
+        
     def decode_server_status(self, req, results):
         d = json.loads(results)
         for key, value in d.items():
-#            print(key, ': ', value)
             if key == 'prit': self.ids.peopleya.text = value
             if key == 'neprit': self.ids.peopleno.text = value
+ 
+    def read_detail_status(self):
+        url = 'http://{0}{1}task=prit&json='.format(self.EVIDENCE_SERVER, self.EVIDENCE_GET_PATH)
+        req = UrlRequest(url, self.decode_detail_status)
+        while len(self.my_data):
+            self.my_data.pop()
 
+    def decode_detail_status(self, req, results):
+        self.ids.idscrollperson.clear_widgets()
+        
+        layout = GridLayout(cols=1, spacing=10, size_hint_y=None)
+        #Make sure the height is such that there is something to scroll.
+        layout.bind(minimum_height=layout.setter('height'))
+
+        try:
+            d = json.loads(results)
+            for value in d:
+                m = ''
+                p = ''
+                descr = ''
+                s = ''
+                c = '#000'
+                for k,v in value.items():
+                    if k == 'priezvisko': p = v
+                    if k == 'meno': m = v
+                    if k == 'color': c = v
+                    if k == 'descr' and v != '': descr = ' - ' + v
+                
+                s = '{0} {1} {2}'.format(p, m, descr)
+                s = '[color=' + c + ']' + s + '[/color]'
+            
+                self.my_data.append(s)
+                btn = Label(text=s, font_size='32sp', pos=self.pos, height='38sp',\
+                    markup=True, size_hint_y=None )
+                layout.add_widget(btn)
+                print(s)
+        except:
+            print('Chyba' + __function__)
+            
+        self.ids.idscrollperson.add_widget(layout)
+                        
 
 class MainApp(App):
     def on_stop(self):

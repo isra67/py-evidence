@@ -1,6 +1,10 @@
 #: import smn kivy.uix.screenmanager
 #: import math math
 
+##: import ListAdapter kivy.adapters.listadapter.ListAdapter
+##: import ListItemButton kivy.uix.listview.ListItemButton
+
+
 
 <Evidence>:
     ScreenManager:
@@ -17,6 +21,60 @@
                 MyClockWidget:
 
         Screen:
+            name: 'infolist'
+            id: infolist
+            #on_touch_down: _screen_manager.current = 'clock'
+            on_enter:
+                root.startScreenTiming()
+            on_pre_enter:
+                root.read_detail_status()
+            on_pre_leave: root.finishScreenTiming()
+#            BoxLayout:
+#                orientation: 'vertical'
+#                #size: 400,400
+#                ListView:
+#                    size_hint: .8,.8
+#                    pos_hint: {"center_x":0.5, "center_y":0.5}
+#                    on_touch_down: root.finishScreenTiming()
+#                    on_touch_up: root.startScreenTiming()
+#                    adapter:
+#                        ListAdapter(data=root.my_data,
+#                        selection_mode='single',
+#                        allow_empty_selection=False,
+#                        cls=ListItemButton,
+#                        args_converter=root.county_converter)
+#                    canvas.before:
+#                        Color:
+#                            rgb: 1,.5,0
+#                        Rectangle:
+#                            pos: self.pos
+#                            size: self.size
+            ScrollView:
+                id: idscrollperson
+                pos: self.pos
+                size: self.size
+                size_hint: .9, .9 # None, None
+                pos_hint: {'center_x':.5, 'center_y':.5}
+                on_scroll_start: root.finishScreenTiming()
+                on_scroll_stop: root.startScreenTiming()
+                canvas.before:
+                    Color:
+                        rgba: .8,.8,.96,.96
+                    Rectangle:
+                        pos: self.pos
+                        size: self.size
+#                GridLayout:
+#                    cols: 1
+#                    id: gllist
+#                    pos: self.pos
+#                    size: self.size
+#                    pos_hint: {'center_x':.5, 'center_y':.5}
+#                    size_hint: .75,.75
+#                    spacing: 10
+#                    #height: self.minimum_height
+#                    minimum_height: 38
+                
+        Screen:
             name: 'people'
             id: people
             on_enter:
@@ -26,7 +84,7 @@
             on_pre_enter:
                 root.read_server_status()
             on_pre_leave: root.finishScreenTiming()
-            on_touch_down: _screen_manager.current = 'clock'
+            on_touch_down: _screen_manager.current = 'infolist'
 
             BoxLayout:
                 orientation: 'vertical'
