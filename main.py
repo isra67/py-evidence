@@ -37,6 +37,7 @@ import datetime
 import feedparser
 import hashlib
 import json
+import locale
 import random
 ##import os.path
 import socket
@@ -52,7 +53,7 @@ import mlib
 
 Builder.load_file("main1.kv")
 
-IMG_TIME = 8
+IMG_TIME = 10
 
 # Clock class - digital
 class DigiClockWidget(FloatLayout):
@@ -110,7 +111,7 @@ class Ticks(Widget):
             while ni == self.galleryIndex:
                 ni = random.randint(0,len(self.gallery) - 1)
             self.galleryIndex = ni
-
+        
         self.remove_widget(self.ln)
         self.remove_widget(self.img)
         self.img.source = self.gallery[self.galleryIndex]
@@ -147,6 +148,28 @@ class Evidence(FloatLayout):
         print('Ini')
         super(Evidence, self).__init__(**kwargs)
         self.scrmngr = self.ids._screen_manager
+        
+        loc = locale.getlocale()
+        defloc = locale.getdefaultlocale()
+
+        try:
+            if loc[0] == None and loc[1] == None:
+                if defloc[1] != 'cp1250':
+                    locale.setlocale(locale.LC_ALL, 'sk_SK.UTF-8')
+                else:
+                    if defloc[0] != None and defloc[1] != None:
+                        locale.setlocale(locale.LC_ALL, defloc[0]+'.'+defloc[1])
+                    else:
+                        locale.setlocale(locale.LC_ALL, '')
+        except:
+            print("Error: ", sys.exc_info()[0])
+            try:
+                locale.setlocale(locale.LC_ALL, '')
+            except:
+                print("Error 2: ", sys.exc_info()[0])
+            #sys.exit()
+            
+        print('Locales: c:{} - d:{}'.format(locale.getlocale(),locale.getdefaultlocale()))
         
         try:
             self.config.read(dirname(__file__) + '/' + 'myconfig.ini') # konfiguracny subor
@@ -335,16 +358,17 @@ class Evidence(FloatLayout):
                     if k == 'color': c = v
                     if k == 'descr' and v != '': descr = ' - ' + v
                 
-                s = '{0} {1} {2}'.format(p, m, descr)
-                s = '[color=' + c + ']' + s + '[/color]'
-            
+                s = u'[color={0}]{1} {2} {3}[/color]'.format(c, p, m, descr)
+                
                 self.my_data.append(s)
-                btn = Label(text=s, font_size='32sp', pos=self.pos, height='38sp',\
-                    markup=True, size_hint_y=None )
+                try:
+                    btn = Label(text=s, height='38sp', markup=True,\
+                        font_size='32sp', pos=self.pos, size_hint_y=None )
+                except:
+                    print("Error: ", sys.exc_info()[0])
                 layout.add_widget(btn)
-                print(s)
         except:
-            print('Chyba' + __function__)
+            print('Chyba: ', sys.exc_info()[0])
             
         self.ids.idscrollperson.add_widget(layout)
                         
