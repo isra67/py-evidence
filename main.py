@@ -111,7 +111,7 @@ class Ticks(Widget):
             while ni == self.galleryIndex:
                 ni = random.randint(0,len(self.gallery) - 1)
             self.galleryIndex = ni
-        
+
         self.remove_widget(self.ln)
         self.remove_widget(self.img)
         self.img.source = self.gallery[self.galleryIndex]
@@ -125,15 +125,33 @@ class Ticks(Widget):
 
         with self.canvas:
             Color(.1, .1, .6, .15)
-            Ellipse(pos={self.y + 19,self.width / 4}, size={self.width / 2, self.height - 38})
+            rb = self.height * .7
+            a = self.center_x - rb / 2
+            b = self.center_y - rb / 2
+            pb = ( a, b )
+            sb = ( rb, rb )
+            Ellipse(pos = pb, size = sb)
 
-            Color(0.6, 0.6, 0.9)
-            Line(points = [self.center_x, self.center_y, self.center_x+0.7*self.r*sin(pi/30*time.second), self.center_y+0.7*self.r*cos(pi/30*time.second)], width=1, cap="round")
+            rs = 12.0
+            a = self.center_x + round(0.77 * self.r * sin(pi/30 * time.second)) - rs / 2
+            b = self.center_y + round(0.77 * self.r * cos(pi/30 * time.second)) - rs / 2
+            ps = ( a, b )
+            ss = ( rs, rs )
+            Color(.9, .9, .9, .9)
+            Ellipse(pos = ps, size = ss)
+            rs = rs - 2
+            a = self.center_x + round(0.77 * self.r * sin(pi/30 * time.second)) - rs / 2
+            b = self.center_y + round(0.77 * self.r * cos(pi/30 * time.second)) - rs / 2
+            ps = ( a, b )
+            ss = ( rs, rs )
+            Color(.1, .1, .9, .9)
+            Ellipse(pos = ps, size = ss)
+
             Color(0.5, 0.5, 0.8)
             Line(points = [self.center_x, self.center_y, self.center_x+0.6*self.r*sin(pi/30*time.minute), self.center_y+0.6*self.r*cos(pi/30*time.minute)], width=2, cap="round")
             Color(0.4, 0.4, 0.7)
             th = time.hour*60 + time.minute
-            Line(points = [self.center_x, self.center_y, self.center_x+0.5*self.r*sin(pi/360*th), self.center_y+0.5*self.r*cos(pi/360*th)], width=3, cap="round")
+            Line(points = [self.center_x, self.center_y, self.center_x+0.4*self.r*sin(pi/360*th), self.center_y+0.4*self.r*cos(pi/360*th)], width=3, cap="round")
 
 
 #App
@@ -148,7 +166,7 @@ class Evidence(FloatLayout):
         print('Ini')
         super(Evidence, self).__init__(**kwargs)
         self.scrmngr = self.ids._screen_manager
-        
+
         loc = locale.getlocale()
         defloc = locale.getdefaultlocale()
 
@@ -168,9 +186,9 @@ class Evidence(FloatLayout):
             except:
                 print("Error 2: ", sys.exc_info()[0])
             #sys.exit()
-            
+
         print('Locales: c:{} - d:{}'.format(locale.getlocale(),locale.getdefaultlocale()))
-        
+
         try:
             self.config.read(dirname(__file__) + '/' + 'myconfig.ini') # konfiguracny subor
         except:
@@ -296,6 +314,7 @@ class Evidence(FloatLayout):
         par += '&d=' + self.myQuote(xdate)
         par += '&ac=' + self.ACCESS_TYPE
         par += '&dev=' + self.DEVICE
+        par += '&det=1'
         par += '&c=' + rfid + '&ty=' + event
 
         url = 'http://{0}{1}{2}'.format(self.EVIDENCE_SERVER, self.EVIDENCE_PATH, par)
@@ -312,7 +331,9 @@ class Evidence(FloatLayout):
             self.rfidKeyCode = ''
 
     def decode_server_response(self, req, results):
-        Clock.schedule_once(self.return2clock, 3)
+        self.finishScreenTiming()
+        self.startScreenTiming()
+#        Clock.schedule_once(self.return2clock, 5)
         rqresult = self.ids.lblresult
 
         if 'ERROR' in results:
@@ -321,16 +342,49 @@ class Evidence(FloatLayout):
         else:
             rqresult.text = 'OK'
 
+        n = self.ids.lblnote
+        nt = ''
+        try:
+            print('RES: ' + results)
+            d = json.loads(results)
+            for value in d:
+                p = ''
+                m = ''
+                c = ''
+                r = ''
+                f = ''
+                o = ''
+                g = ''
+                for k,v in value.items():
+                    if k == 'priezvisko': p = v
+                    if k == 'meno': m = v
+                    if k == 'evc': c = v
+                    if k == 'respond': r = v
+                    if k == 'fond': f = v
+                    if k == 'odpracm': o = v
+                    if k == 'odpracd': g = v
+
+                nt = u'{0} {1} ({2})\nOdpracovane: dnes:{4}, mesiac:{5}\nfond:{6}\n{3}'.format(m, p, c, r, g, o, f)
+
+#            nt += ' ' + d['fond']
+#            nt += ' ' + d['odpracm']
+#            nt += ' ' + d['odpracd']
+        except:
+            nt = 'JSON error' + '\n' + results
+#            pass
+        finally:
+            n.text = nt
+
     def read_server_status(self):
         url = 'http://{0}{1}t=4'.format(self.EVIDENCE_SERVER, self.EVIDENCE_PATH)
         req = UrlRequest(url, self.decode_server_status)
-        
+
     def decode_server_status(self, req, results):
         d = json.loads(results)
         for key, value in d.items():
             if key == 'prit': self.ids.peopleya.text = value
             if key == 'neprit': self.ids.peopleno.text = value
- 
+
     def read_detail_status(self):
         url = 'http://{0}{1}task=prit&json='.format(self.EVIDENCE_SERVER, self.EVIDENCE_GET_PATH)
         req = UrlRequest(url, self.decode_detail_status)
@@ -339,7 +393,7 @@ class Evidence(FloatLayout):
 
     def decode_detail_status(self, req, results):
         self.ids.idscrollperson.clear_widgets()
-        
+
         layout = GridLayout(cols=1, spacing=10, size_hint_y=None)
         #Make sure the height is such that there is something to scroll.
         layout.bind(minimum_height=layout.setter('height'))
@@ -357,9 +411,9 @@ class Evidence(FloatLayout):
                     if k == 'meno': m = v
                     if k == 'color': c = v
                     if k == 'descr' and v != '': descr = ' - ' + v
-                
+
                 s = u'[color={0}]{1} {2} {3}[/color]'.format(c, p, m, descr)
-                
+
                 self.my_data.append(s)
                 try:
                     btn = Label(text=s, height='38sp', markup=True,\
@@ -369,9 +423,9 @@ class Evidence(FloatLayout):
                 layout.add_widget(btn)
         except:
             print('Chyba: ', sys.exc_info()[0])
-            
+
         self.ids.idscrollperson.add_widget(layout)
-                        
+
 
 class MainApp(App):
     def on_stop(self):
